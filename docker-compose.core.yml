@@ -30,8 +30,9 @@ services:
     restart: unless-stopped
 
   litellm:
-    # 生产必须锁定版本：将 vX.Y.Z 替换为你在预生产验收通过的 tag
-    image: ghcr.io/berriai/litellm:vX.Y.Z
+    # 生产必须锁定版本：在 .env 中显式指定（避免滚动更新风险）
+    # 例：LITELLM_IMAGE=ghcr.io/berriai/litellm:vX.Y.Z
+    image: ${LITELLM_IMAGE}
     container_name: litellm-proxy
     depends_on:
       postgres:
