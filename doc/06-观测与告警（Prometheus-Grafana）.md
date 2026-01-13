@@ -21,6 +21,8 @@
 
 ## 启动方式（与核心服务共用网络）
 
+> 说明：全功能完整部署脚本 `scripts/deploy-full.sh` 默认会启动观测栈；你也可以用下面命令手动启动/更新。
+
 ```bash
 cd /opt/litellm-server
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d

@@ -19,6 +19,11 @@
 2. 由 systemd / PHP-FPM 环境变量注入
 3. （不推荐）写入 WP 数据库 option（除非加密 + 严格权限 + 审计）
 
+推荐的 `wp-config.php` 常量（本仓库脚本可自动写入）：
+
+- `LITELLM_API_BASE`：例如 `https://litellm.yourcompany.com`
+- `LITELLM_SERVICE_KEY`：WordPress 专用 service key（不要用 Master Key）
+
 ### 2) iframe 嵌入 LiteLLM `/ui`
 
 要点：

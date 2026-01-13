@@ -19,40 +19,38 @@
 - `nginx/litellm.conf`：宿主机 Nginx 反代示例（含 iframe 所需 CSP）
 - `observability/`：Prometheus/Alertmanager/Grafana provisioning 等配置
 
-## 3 分钟快速上手（核心服务）
+## 全功能完整部署（推荐：几条命令完成）
 
-> 生产基线：LiteLLM 不对公网暴露端口，只绑定回环；对外统一用宿主机 Nginx/Apache 反代与 HTTPS。
+> 目标：WordPress 原生 + LiteLLM Docker + Nginx HTTPS + 观测栈 + 插件。  
+> 安全默认：LiteLLM 仅绑定 `127.0.0.1:24157`；版本强制锁定（不允许滚动 tag）；支持将 service key 注入 `wp-config.php`（避免密钥落库）。
 
-1) 拷贝模板到服务器（示例：`/opt/litellm-server`）
+前置条件（建议先确认）：
 
-- 复制 `docker-compose.core.yml` 为 `/opt/litellm-server/docker-compose.yml`
-- 复制 `env.example` 为 `/opt/litellm-server/.env`
-- 复制 `config/litellm-config.yaml` 为 `/opt/litellm-server/config/litellm-config.yaml`
+- 服务器已安装并运行 WordPress（原生）
+- DNS 已将 `litellm.<你的域名>` 指向本服务器公网 IP（若启用 `--enable-tls`）
+- 80/443 对外可达（若启用 `--enable-tls`）
+- 你有 root/sudo 权限
 
-2) 修改 `/opt/litellm-server/.env` 并收紧权限
-
-```bash
-cd /opt/litellm-server
-chmod 600 .env
-```
-
-3) 启动
+在本仓库目录执行（示例参数）：
 
 ```bash
-docker compose up -d
-docker compose ps
-curl -fsS http://127.0.0.1:24157/health
+sudo bash scripts/deploy-full.sh \
+  --install-deps \
+  --litellm-domain litellm.example.com \
+  --wp-domain wp.example.com \
+  --email admin@example.com \
+  --litellm-image ghcr.io/berriai/litellm:vX.Y.Z \
+  --enable-tls \
+  --configure-wp-config
 ```
 
-## 5 分钟补齐观测（推荐）
+> 提示：`vX.Y.Z` 需要替换为你要锁定的真实版本（建议从官方 Releases 选择稳定版）。
 
-```bash
-cd /opt/litellm-server
-docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
-curl -fsS http://127.0.0.1:9090/-/healthy
-curl -fsS http://127.0.0.1:3000/api/health
-curl -fsS http://127.0.0.1:9093/-/healthy
-```
+脚本会自动完成：复制/生成 `/opt/litellm-server`、配置 Nginx 反代、申请 HTTPS（可选）、启动 LiteLLM 与观测栈、部署插件、生成 WordPress service key。
+
+> 版本来源请参考 LiteLLM 官方仓库：[BerriAI/litellm](https://github.com/BerriAI/litellm)
+
+脚本帮助：`sudo bash scripts/deploy-full.sh --help`
 
 ## 文档入口
 
