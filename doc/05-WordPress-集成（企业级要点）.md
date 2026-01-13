@@ -1,5 +1,7 @@
 # WordPress 集成（企业级要点）
 
+> [< 上一篇：LiteLLM 部署](04-LiteLLM-部署（Docker-Compose）.md) | [返回目录](README.md) | [下一篇：观测与告警 >](06-观测与告警（Prometheus-Grafana）.md)
+
 ## 核心原则（强制）
 
 - **最小权限**：WordPress 使用 LiteLLM 的 **service key**（而不是 master key）

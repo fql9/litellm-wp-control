@@ -1,5 +1,7 @@
 # 观测与告警（Prometheus / Grafana / Alertmanager）
 
+> [< 上一篇：WordPress 集成](05-WordPress-集成（企业级要点）.md) | [返回目录](README.md) | [下一篇：安全基线 >](07-安全基线（强制项）.md)
+
 ## 目标
 
 除 LiteLLM 原生 `/ui` 外，补齐企业必需的全链路观测：
