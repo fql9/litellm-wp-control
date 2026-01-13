@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 企业级“全功能完整部署”脚本（同机：WordPress 原生 + LiteLLM Docker + Nginx HTTPS + 观测栈 + 插件）
+# 企业级 LiteLLM 部署脚本（仅 LiteLLM：Docker Compose + 可选观测栈）
 # 安全默认：
 # - LiteLLM 仅绑定 127.0.0.1:${LITELLM_PORT}
 # - 强制要求你显式锁定 LiteLLM 镜像版本（LITELLM_IMAGE）
@@ -10,20 +10,13 @@ set -euo pipefail
 
 LITELLM_PORT="${LITELLM_PORT:-24157}"
 LITELLM_DIR="${LITELLM_DIR:-/opt/litellm-server}"
-WP_ROOT="${WP_ROOT:-/var/www/html}"
-WP_CONFIG="${WP_CONFIG:-${WP_ROOT}/wp-config.php}"
 
-LITELLM_DOMAIN=""
-WP_DOMAIN=""
-EMAIL=""
 LITELLM_IMAGE_ARG=""
 INSTALL_DEPS=0
-ENABLE_TLS=0
 ENABLE_UFW=0
 SSH_PORT=22
 START_OBSERVABILITY=1
-DEPLOY_WP_PLUGIN=1
-CONFIGURE_WP_CONFIG=0
+PRINT_SERVICE_KEY=0
 YES=0
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,33 +25,22 @@ usage() {
   cat <<EOF
 用法：
   sudo ./scripts/deploy-full.sh \\
-    --litellm-domain litellm.example.com \\
-    --wp-domain wp.example.com \\
-    --email admin@example.com \\
     --litellm-image ghcr.io/berriai/litellm:vX.Y.Z \\
     --install-deps \\
-    --enable-tls \\
     --enable-ufw --ssh-port 22 \\
-    --configure-wp-config \\
     --yes
 
-必填：
-  --litellm-domain     LiteLLM 对外域名（用于 Nginx/证书）
-  --wp-domain          WordPress 域名（用于 CSP frame-ancestors）
+单独获取/生成 service key：
+  sudo ./scripts/deploy-full.sh --service-key
 
 可选：
-  --email              certbot 邮箱（推荐）
   --litellm-image       指定 LiteLLM 镜像（强烈推荐用此参数自动写入 .env，避免手工编辑）
-  --install-deps       安装依赖（docker/nginx/certbot/ufw）
-  --enable-tls         使用 certbot 申请/配置 HTTPS（需要 DNS 已指向本机）
+  --install-deps       安装依赖（docker/compose/jq/ufw）
   --enable-ufw         配置 UFW（默认不启用，避免误封 SSH）
   --ssh-port N         SSH 端口（默认 22）
   --no-observability   不启动观测栈（不推荐）
-  --no-wp-plugin       不部署 WordPress 插件
-  --wp-root PATH       WordPress 根目录（默认 /var/www/html）
-  --wp-config PATH     wp-config.php 路径（默认 \${WP_ROOT}/wp-config.php）
   --litellm-dir PATH   部署目录（默认 /opt/litellm-server）
-  --configure-wp-config 自动写入 wp-config.php 常量（推荐，避免 key 落库）
+  --service-key        输出（必要时生成）service key，并写入 <litellm-dir>/service-key.txt
   --yes                非交互确认
 
 重要说明：
@@ -79,7 +61,7 @@ confirm() {
 
 need_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    die "请使用 sudo 运行（需要写 /opt、/etc/nginx、可选配置 ufw）。"
+    die "请使用 sudo 运行（需要写 /opt，且可能配置 ufw）。"
   fi
 }
 
@@ -99,41 +81,29 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -h|--help) usage; exit 0 ;;
-      --litellm-domain) LITELLM_DOMAIN="${2:-}"; shift 2 ;;
-      --wp-domain) WP_DOMAIN="${2:-}"; shift 2 ;;
-      --email) EMAIL="${2:-}"; shift 2 ;;
       --litellm-image) LITELLM_IMAGE_ARG="${2:-}"; shift 2 ;;
       --install-deps) INSTALL_DEPS=1; shift ;;
-      --enable-tls) ENABLE_TLS=1; shift ;;
       --enable-ufw) ENABLE_UFW=1; shift ;;
       --ssh-port) SSH_PORT="${2:-22}"; shift 2 ;;
       --no-observability) START_OBSERVABILITY=0; shift ;;
-      --no-wp-plugin) DEPLOY_WP_PLUGIN=0; shift ;;
-      --wp-root) WP_ROOT="${2:-}"; WP_CONFIG="${WP_ROOT}/wp-config.php"; shift 2 ;;
-      --wp-config) WP_CONFIG="${2:-}"; shift 2 ;;
       --litellm-dir) LITELLM_DIR="${2:-}"; shift 2 ;;
-      --configure-wp-config) CONFIGURE_WP_CONFIG=1; shift ;;
+      --service-key) PRINT_SERVICE_KEY=1; shift ;;
       --yes) YES=1; shift ;;
       *) die "未知参数：$1（用 --help 查看用法）" ;;
     esac
   done
-
-  [[ -n "${LITELLM_DOMAIN}" ]] || die "缺少 --litellm-domain"
-  [[ -n "${WP_DOMAIN}" ]] || die "缺少 --wp-domain"
 }
 
 install_deps() {
-  echo "==> 安装依赖（docker/nginx/certbot/ufw）"
+  echo "==> 安装依赖（docker/compose/jq/ufw）"
   apt-get update -y
   apt-get install -y \
     ca-certificates curl gnupg lsb-release \
     docker.io docker-compose-plugin \
-    nginx \
-    certbot python3-certbot-nginx \
+    python3 \
     ufw \
     jq
   systemctl enable --now docker
-  systemctl enable --now nginx
 }
 
 prepare_litellm_dir() {
@@ -225,28 +195,10 @@ ensure_env_values() {
   fi
 }
 
-configure_nginx() {
-  echo "==> 配置宿主机 Nginx 反代（${LITELLM_DOMAIN} -> 127.0.0.1:${LITELLM_PORT}）"
-  local out="/etc/nginx/sites-available/litellm.conf"
-  cp -f "${REPO_ROOT}/nginx/litellm.conf" "${out}"
-  sed -i "s/litellm\\.yourcompany\\.com/${LITELLM_DOMAIN}/g" "${out}"
-  sed -i "s/your-wordpress-domain\\.com/${WP_DOMAIN}/g" "${out}"
-  # 将模板中的默认端口替换为实际端口（模板当前是 24157）
-  sed -i -E "s/127\\.0\\.0\\.1:[0-9]+/127.0.0.1:${LITELLM_PORT}/g" "${out}"
-
-  ln -sf "${out}" /etc/nginx/sites-enabled/litellm.conf
-  nginx -t
-  systemctl reload nginx
-}
-
-enable_tls() {
-  echo "==> 申请/配置 HTTPS（certbot --nginx）"
-  if [[ -n "${EMAIL}" ]]; then
-    certbot --nginx --redirect -d "${LITELLM_DOMAIN}" -m "${EMAIL}" --agree-tos --non-interactive
-  else
-    certbot --nginx --redirect -d "${LITELLM_DOMAIN}"
-  fi
-}
+#
+# 注意：按你的要求，本脚本不处理 Nginx/HTTPS，也不参与 WordPress 集成。
+# 如需对外反代，请使用仓库 `nginx/litellm.conf` 自行配置（建议仅内网/VPN 暴露）。
+#
 
 start_services() {
   echo "==> 启动 LiteLLM 核心服务"
@@ -260,29 +212,28 @@ start_services() {
   fi
 }
 
-deploy_wp_plugin() {
-  echo "==> 部署 WordPress 插件（示例）到 ${WP_ROOT}/wp-content/plugins"
-  local plugin_dst="${WP_ROOT}/wp-content/plugins/litellm-dashboard"
-  [[ -d "${WP_ROOT}/wp-content/plugins" ]] || die "未找到 WordPress 插件目录：${WP_ROOT}/wp-content/plugins"
-  rm -rf "${plugin_dst}"
-  cp -a "${REPO_ROOT}/wordpress-plugin/litellm-dashboard" "${plugin_dst}"
-  chown -R www-data:www-data "${plugin_dst}" || true
-  find "${plugin_dst}" -type d -exec chmod 755 {} \;
-  find "${plugin_dst}" -type f -exec chmod 644 {} \;
-  echo "    请在 WordPress 后台启用插件：LiteLLM Dashboard"
-}
-
-generate_wp_service_key() {
+get_or_create_service_key() {
   local env_file="${LITELLM_DIR}/.env"
+  local service_key_file="${LITELLM_DIR}/service-key.txt"
   local master
   master="$(grep -E "^LITELLM_MASTER_KEY=" "${env_file}" | tail -n 1 | cut -d= -f2-)"
 
-  echo "==> 生成 WordPress 专用 service key（仅给 WP 后端使用）"
+  if [[ -f "${service_key_file}" ]]; then
+    local existing
+    existing="$(cat "${service_key_file}" 2>/dev/null || true)"
+    if [[ -n "${existing}" ]]; then
+      echo "==> 读取已存在的 service key：${service_key_file}" >&2
+      echo "${existing}"
+      return 0
+    fi
+  fi
+
+  echo "==> 生成 service key（用于管理/发放业务 key）" >&2
   local resp
   resp="$(curl -fsS -X POST "http://127.0.0.1:${LITELLM_PORT}/key/generate" \
     -H "Authorization: Bearer ${master}" \
     -H "Content-Type: application/json" \
-    -d '{"key_name":"wordpress_admin_service","models":["gpt-3.5-turbo","gpt-4"],"max_budget":1000,"rpm_limit":100}')"
+    -d '{"key_name":"litellm_admin_service","models":["gpt-3.5-turbo","gpt-4"],"max_budget":1000,"rpm_limit":100}')"
 
   local key
   key="$(echo "${resp}" | python3 - <<'PY'
@@ -293,38 +244,13 @@ PY
 )"
 
   [[ -n "${key}" ]] || die "生成 service key 失败（响应：${resp})"
-  echo "    WordPress service key：${key}"
-  echo "    （请妥善保存；生产建议写入 wp-config.php 常量或系统环境变量，不要落库）"
+  umask 077
+  mkdir -p "$(dirname "${service_key_file}")"
+  echo "${key}" > "${service_key_file}"
+  chmod 600 "${service_key_file}" || true
+  echo "    已写入：${service_key_file}" >&2
 
   echo "${key}"
-}
-
-configure_wp_config() {
-  [[ -f "${WP_CONFIG}" ]] || die "未找到 wp-config.php：${WP_CONFIG}"
-  local service_key="$1"
-
-  echo "==> 写入 wp-config.php 常量（避免 key 落库）"
-  cp -f "${WP_CONFIG}" "${WP_CONFIG}.bak.$(date +%Y%m%d%H%M%S)"
-
-  # 幂等：先移除旧定义（如果存在）
-  sed -i "/define('LITELLM_API_BASE'/d" "${WP_CONFIG}"
-  sed -i "/define('LITELLM_SERVICE_KEY'/d" "${WP_CONFIG}"
-
-  # 插入到 “stop editing” 之前
-  local snippet
-  local scheme="http"
-  if [[ "${ENABLE_TLS}" -eq 1 ]]; then
-    scheme="https"
-  fi
-  snippet=$'\n'\"define('LITELLM_API_BASE', '${scheme}://${LITELLM_DOMAIN}');\"$'\n'\"define('LITELLM_SERVICE_KEY', '${service_key}');\"$'\n'
-
-  if grep -q "That's all, stop editing" "${WP_CONFIG}"; then
-    sed -i "/That's all, stop editing/i ${snippet}" "${WP_CONFIG}"
-  else
-    echo "${snippet}" >> "${WP_CONFIG}"
-  fi
-
-  echo "    已写入：LITELLM_API_BASE / LITELLM_SERVICE_KEY"
 }
 
 configure_ufw() {
@@ -344,6 +270,24 @@ main() {
   need_root
   parse_args "$@"
 
+  # 仅输出/生成 service key（不改系统配置）
+  if [[ "${PRINT_SERVICE_KEY}" -eq 1 ]]; then
+    # 确保已部署目录与 env
+    [[ -f "${LITELLM_DIR}/.env" ]] || die "未找到 ${LITELLM_DIR}/.env，请先部署 LiteLLM 或指定 --litellm-dir"
+    # 确保服务可用（必要时启动）
+    if ! curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null 2>&1; then
+      echo "==> LiteLLM 未运行，尝试启动（docker compose up -d）"
+      (cd "${LITELLM_DIR}" && docker compose up -d)
+    fi
+    curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null || die "LiteLLM 未就绪，无法生成 service key"
+    echo ""
+    key="$(get_or_create_service_key)"
+    echo ""
+    echo "service key：${key}"
+    echo "保存位置：${LITELLM_DIR}/service-key.txt"
+    exit 0
+  fi
+
   if [[ "${INSTALL_DEPS}" -eq 1 ]]; then
     install_deps
   fi
@@ -351,23 +295,7 @@ main() {
   prepare_litellm_dir
   ensure_env_values
 
-  configure_nginx
-  if [[ "${ENABLE_TLS}" -eq 1 ]]; then
-    enable_tls
-  fi
-
   start_services
-
-  local service_key=""
-  service_key="$(generate_wp_service_key)"
-
-  if [[ "${DEPLOY_WP_PLUGIN}" -eq 1 ]]; then
-    deploy_wp_plugin
-  fi
-
-  if [[ "${CONFIGURE_WP_CONFIG}" -eq 1 ]]; then
-    configure_wp_config "${service_key}"
-  fi
 
   if [[ "${ENABLE_UFW}" -eq 1 ]]; then
     configure_ufw
@@ -375,12 +303,6 @@ main() {
 
   echo ""
   echo "==> 完成"
-  local scheme="http"
-  if [[ "${ENABLE_TLS}" -eq 1 ]]; then
-    scheme="https"
-  fi
-  echo "- LiteLLM 对外入口（反代）：${scheme}://${LITELLM_DOMAIN}"
-  echo "- LiteLLM 原生 UI：          ${scheme}://${LITELLM_DOMAIN}/ui/"
   echo "- LiteLLM 仅本机回环：       http://127.0.0.1:${LITELLM_PORT}"
   if [[ "${START_OBSERVABILITY}" -eq 1 ]]; then
     echo "- Prometheus：               http://127.0.0.1:9090"
@@ -389,9 +311,8 @@ main() {
   fi
   echo ""
   echo "后续："
-  echo "- 在 WordPress 后台启用插件 LiteLLM Dashboard"
-  echo "- 插件 API Base 建议使用 https://${LITELLM_DOMAIN}"
-  echo "- 生产请勿把 key 落库；推荐使用 wp-config.php 常量（本脚本可用 --configure-wp-config）。"
+  echo "- 获取/生成 service key：sudo bash scripts/deploy-full.sh --service-key"
+  echo "- 如需对外访问（HTTP）请自行配置反代（参考 nginx/litellm.conf），并建议只在内网/VPN 暴露。"
 }
 
 main "$@"

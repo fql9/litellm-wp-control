@@ -38,9 +38,13 @@ curl -fsS http://127.0.0.1:24157/health
 ## Key 治理（企业强制：Master Key 只用于 bootstrap）
 
 1) Master Key（`LITELLM_MASTER_KEY`）只给运维，不写入 WordPress 数据库、不出现在浏览器。
-2) 用 Master Key 生成一个 **WordPress 专用 service key**，WordPress 后端使用它来创建/管理业务 key。
+2) 用 Master Key 生成一个 **service key**（可给 WordPress 后端或企业内部管理服务使用），用于创建/管理业务 key。
 
-> 生成命令参考：在 `litellm-wordpress-deploy.md` 中的“用 Master Key 生成 WordPress 专用 service key”示例。
+推荐（使用本仓库脚本生成/获取，并写入 `/opt/litellm-server/service-key.txt`）：
+
+```bash
+sudo bash scripts/deploy-full.sh --service-key
+```
 
 ## （可选）开发/调试模式（参考官方仓库）
 

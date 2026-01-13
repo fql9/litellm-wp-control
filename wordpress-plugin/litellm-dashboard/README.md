@@ -10,15 +10,19 @@
 ## 配置
 
 - WordPress 后台 → **LiteLLM** → **设置**
-  - **API 基础 URL**：例如 `http://127.0.0.1:24157`（同机回环）或 `https://litellm.yourcompany.com`（反代域名）
+  - **API 基础 URL**：例如 `http://127.0.0.1:24157`（同机回环）或 `http://litellm.yourcompany.com`（反代域名）
   - **密钥**：建议使用 LiteLLM 的 **WordPress 专用 service key**（不要使用 Master Key）
 
 ## 重要安全说明（生产必读）
 
 当前示例插件 **支持** 通过 `wp-config.php` 常量注入（推荐），避免密钥落库：
 
-- `define('LITELLM_API_BASE', 'https://litellm.yourcompany.com');`
+- `define('LITELLM_API_BASE', 'http://litellm.yourcompany.com');`
 - `define('LITELLM_SERVICE_KEY', 'sk-...');`
+
+service key 获取方式（本仓库脚本提供指令）：
+
+- `sudo bash scripts/deploy-full.sh --service-key`
 
 若不使用常量注入而选择在后台表单里填写，则会把密钥保存到 WordPress option（`litellm_settings.master_key`）。这在企业生产环境通常 **不合规**。
 

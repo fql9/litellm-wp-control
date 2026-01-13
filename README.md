@@ -19,38 +19,33 @@
 - `nginx/litellm.conf`：宿主机 Nginx 反代示例（含 iframe 所需 CSP）
 - `observability/`：Prometheus/Alertmanager/Grafana provisioning 等配置
 
-## 全功能完整部署（推荐：几条命令完成）
+## 部署 LiteLLM（推荐：几条命令完成）
 
-> 目标：WordPress 原生 + LiteLLM Docker + Nginx HTTPS + 观测栈 + 插件。  
-> 安全默认：LiteLLM 仅绑定 `127.0.0.1:24157`；版本强制锁定（不允许滚动 tag）；支持将 service key 注入 `wp-config.php`（避免密钥落库）。
+> 脚本只负责 LiteLLM（Docker + 观测栈）部署，不处理 WordPress 与 HTTPS。  
+> 安全默认：LiteLLM 仅绑定 `127.0.0.1:24157`；版本强制锁定（不允许滚动 tag）。
 
-前置条件（建议先确认）：
+前置条件：
 
-- 服务器已安装并运行 WordPress（原生）
-- DNS 已将 `litellm.<你的域名>` 指向本服务器公网 IP（若启用 `--enable-tls`）
-- 80/443 对外可达（若启用 `--enable-tls`）
 - 你有 root/sudo 权限
+- 服务器可联网安装依赖（若使用 `--install-deps`）
 
 在本仓库目录执行（示例参数）：
 
 ```bash
 sudo bash scripts/deploy-full.sh \
   --install-deps \
-  --litellm-domain litellm.example.com \
-  --wp-domain wp.example.com \
-  --email admin@example.com \
-  --litellm-image ghcr.io/berriai/litellm:vX.Y.Z \
-  --enable-tls \
-  --configure-wp-config
+  --litellm-image ghcr.io/berriai/litellm:vX.Y.Z
 ```
 
 > 提示：`vX.Y.Z` 需要替换为你要锁定的真实版本（建议从官方 Releases 选择稳定版）。
 
-脚本会自动完成：复制/生成 `/opt/litellm-server`、配置 Nginx 反代、申请 HTTPS（可选）、启动 LiteLLM 与观测栈、部署插件、生成 WordPress service key。
+脚本会自动完成：复制/生成 `/opt/litellm-server`、启动 LiteLLM 与观测栈。
 
 > 版本来源请参考 LiteLLM 官方仓库：[BerriAI/litellm](https://github.com/BerriAI/litellm)
 
 脚本帮助：`sudo bash scripts/deploy-full.sh --help`
+
+生成/获取 service key：`sudo bash scripts/deploy-full.sh --service-key`
 
 ## 文档入口
 

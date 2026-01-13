@@ -404,7 +404,7 @@ class LiteLLM_Dashboard {
                         <th><label for="api_base"><?php esc_html_e('API 基础 URL', 'litellm-dashboard'); ?></label></th>
                         <td>
                             <input type="url" id="api_base" name="api_base" class="regular-text" value="<?php echo esc_attr($api_base ?? ''); ?>" <?php echo $using_const_api_base ? 'readonly' : ''; ?> required>
-                            <p class="description"><?php esc_html_e('例如：http://localhost:24157 或 https://litellm.yourcompany.com', 'litellm-dashboard'); ?></p>
+                            <p class="description"><?php esc_html_e('例如：http://localhost:24157 或 http://litellm.yourcompany.com', 'litellm-dashboard'); ?></p>
                             <?php if ($using_const_api_base): ?>
                                 <p class="description"><strong><?php esc_html_e('当前由 wp-config.php 常量 LITELLM_API_BASE 注入（推荐）。', 'litellm-dashboard'); ?></strong></p>
                             <?php endif; ?>

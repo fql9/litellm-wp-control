@@ -19,16 +19,20 @@
 2. 由 systemd / PHP-FPM 环境变量注入
 3. （不推荐）写入 WP 数据库 option（除非加密 + 严格权限 + 审计）
 
-推荐的 `wp-config.php` 常量（本仓库脚本可自动写入）：
+推荐的 `wp-config.php` 常量（需你手动写入，不建议在后台表单保存密钥）：
 
-- `LITELLM_API_BASE`：例如 `https://litellm.yourcompany.com`
+- `LITELLM_API_BASE`：例如 `http://litellm.yourcompany.com`
 - `LITELLM_SERVICE_KEY`：WordPress 专用 service key（不要用 Master Key）
+
+service key 获取方式（本仓库脚本提供指令）：
+
+- `sudo bash scripts/deploy-full.sh --service-key`
 
 ### 2) iframe 嵌入 LiteLLM `/ui`
 
 要点：
 - 通过宿主机反代域名访问 `/ui`
-- 由反代层配置 `Content-Security-Policy: frame-ancestors https://<your-wordpress-domain>`
+- 由反代层配置 `Content-Security-Policy: frame-ancestors http://<your-wordpress-domain>`
 - 必要时在反代层隐藏上游 `X-Frame-Options`
 
 参考模板：`../nginx/litellm.conf`
