@@ -23,3 +23,7 @@ build/
 *.swp
 *.swo
 *~
+
+# Root docs migrated to doc/ (keep local if you want, but don't track in git)
+litellm-wordpress-deploy.md
+quick-reference.md
