@@ -4,7 +4,7 @@
 
 ## 推荐入口
 
-- **部署 LiteLLM（自动化，一条命令）**：`doc/00-快速上手.md`
+- **完整链路快速上手（推荐）**：`doc/00-快速上手.md`
 - **文档目录**：`doc/README.md`
 - **一键脚本**：`scripts/deploy-full.sh`
 

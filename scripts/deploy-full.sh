@@ -25,7 +25,7 @@ usage() {
   cat <<EOF
 用法：
   sudo ./scripts/deploy-full.sh \\
-    --litellm-image ghcr.io/berriai/litellm:vX.Y.Z \\
+    --litellm-image ghcr.io/berriai/litellm:v1.80.11 \\
     --install-deps \\
     --enable-ufw --ssh-port 22 \\
     --yes
@@ -138,7 +138,7 @@ ensure_env_values() {
       echo "${key}=${value}" >> "${env_file}"
       return
     fi
-    # replace placeholder vX.Y.Z / change_me / sk-your-... only if still default-like
+    # replace placeholder / change_me / sk-your-... only if still default-like
     local cur
     cur="$(grep -E "^${key}=" "${env_file}" | tail -n 1 | cut -d= -f2- || true)"
     if [[ "${cur}" == "vX.Y.Z" || "${cur}" == "sk-your-secure-master-key" || "${cur}" == "litellm_password_change_me" || "${cur}" == "sk-your-openai-key" || "${cur}" == "sk-your-anthropic-key" || "${cur}" == "ghcr.io/berriai/litellm:vX.Y.Z" ]]; then
@@ -154,12 +154,13 @@ ensure_env_values() {
     set_kv "LITELLM_IMAGE" "${LITELLM_IMAGE_ARG}"
   fi
 
-  # 强制要求锁定版本（且不能是占位符 vX.Y.Z）
+  # 强制要求锁定版本（禁止占位符/滚动 tag）
   local img
   img="$(grep -E "^LITELLM_IMAGE=" "${env_file}" | tail -n 1 | cut -d= -f2- || true)"
   if [[ -z "${img}" || "${img}" == "ghcr.io/berriai/litellm:vX.Y.Z" ]]; then
     if [[ "${YES}" -eq 1 ]]; then
-      echo "!! 你需要在 ${env_file} 中设置 LITELLM_IMAGE=ghcr.io/berriai/litellm:vX.Y.Z（替换为真实版本）"
+      echo "!! 你需要在 ${env_file} 中设置 LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11（或你验收通过的稳定版本）"
+      echo "   文档默认版本：v1.80.11（更新日期：2026-01-13）"
       echo "   参考官方仓库 Releases: https://github.com/BerriAI/litellm"
       die "缺少/未正确设置 LITELLM_IMAGE"
     fi

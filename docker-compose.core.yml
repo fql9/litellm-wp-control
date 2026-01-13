@@ -31,7 +31,7 @@ services:
 
   litellm:
     # 生产必须锁定版本：在 .env 中显式指定（避免滚动更新风险）
-    # 例：LITELLM_IMAGE=ghcr.io/berriai/litellm:vX.Y.Z
+    # 例：LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11（文档默认版本：2026-01-13）
     image: ${LITELLM_IMAGE}
     container_name: litellm-proxy
     depends_on:

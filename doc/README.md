@@ -2,10 +2,12 @@
 
 本目录为 `litellm-wp-control` 的详细文档（按章节拆分）。
 
+> 文档默认 LiteLLM 版本：**v1.80.11**（更新日期：**2026-01-13**）
+
 ## 📚 目录
 
 ### 🚀 入门
-- [00-快速上手.md](00-快速上手.md)：部署 LiteLLM（Docker + 观测 + service key，一条命令 + 安全默认 + 自动化）。
+- [00-快速上手.md](00-快速上手.md)：完整链路快速上手（WordPress HTTPS + LiteLLM + HTTPS 子域名 + 插件 + 观测）。
 - [01-系统架构.md](01-系统架构.md)：了解 WordPress + LiteLLM + 观测栈的组件与数据流。
 
 ### 🏗️ 部署与集成
