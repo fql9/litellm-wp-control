@@ -12,7 +12,7 @@
 
 ### A1) WordPress 后台是 HTTPS → LiteLLM `/ui` 也必须是 HTTPS
 
-如果你的 WP 后台是 `https://agent.xooer.com`，那么 iframe 里的 LiteLLM `/ui` **也必须**通过 `https://` 访问，否则浏览器会以 **mixed content** 直接拦截（与 CSP/CORS 无关）。
+如果你的 WP 后台是 `https://wp.example.com`，那么 iframe 里的 LiteLLM `/ui` **也必须**通过 `https://` 访问，否则浏览器会以 **mixed content** 直接拦截（与 CSP/CORS 无关）。
 
 ### A2) LiteLLM 端口不对公网暴露（强制）
 
@@ -20,8 +20,8 @@
 
 ### A3) 通配符证书（必须确认覆盖范围）
 
-- 若你的通配符证书为 `*.xooer.com`：推荐 LiteLLM 子域名用 `litellm.xooer.com`（✅覆盖）
-- 若你想用 `litellm.agent.xooer.com`：需要 `*.agent.xooer.com`（`*.xooer.com` ❌不覆盖二级子域）
+- 若你的通配符证书为 `*.example.com`：推荐 LiteLLM 子域名用 `litellm.example.com`（✅覆盖）
+- 若你想用 `litellm.wp.example.com`：需要 `*.wp.example.com`（`*.example.com` ❌不覆盖二级子域）
 
 ---
 
@@ -33,16 +33,16 @@
 
 为 LiteLLM 子域名加一条 A 记录：
 
-- `litellm.xooer.com` → 指向 LiteLLM 服务器公网 IP
+- `litellm.example.com` → 指向 LiteLLM 服务器公网 IP
 
 ### B2) Nginx 配置（通配符证书 + iframe 允许）
 
 仓库提供模板：`../nginx/litellm.conf`。你需要按你的环境替换：
 
-- `server_name litellm.yourcompany.com;` → `litellm.xooer.com`
+- `server_name litellm.yourcompany.com;` → `litellm.example.com`
 - `ssl_certificate /path/to/wildcard/fullchain.pem;` → 你的证书链文件
 - `ssl_certificate_key /path/to/wildcard/privkey.pem;` → 你的私钥文件
-- `frame-ancestors ... https://your-wordpress-domain.com` → `https://agent.xooer.com`
+- `frame-ancestors ... https://your-wordpress-domain.com` → `https://wp.example.com`
 
 建议落地路径（Ubuntu/Nginx 默认习惯）：
 
@@ -57,7 +57,7 @@
 
 由于 WordPress 与 LiteLLM 在同机，建议在服务器 `/etc/hosts` 里加：
 
-- `127.0.0.1  litellm.xooer.com`
+- `127.0.0.1  litellm.example.com`
 
 这样 WordPress 的 **服务器端调用**（PHP）会走本机回环 → Nginx → LiteLLM，不依赖公网回环/NAT。
 
@@ -99,7 +99,7 @@ sudo cat /opt/litellm-server/service-key.txt
 在 `wp-config.php` 中加入（放在 “stop editing” 之前）：
 
 ```php
-define('LITELLM_API_BASE', 'https://litellm.xooer.com');
+define('LITELLM_API_BASE', 'https://litellm.example.com');
 define('LITELLM_SERVICE_KEY', 'sk-xxxxx'); // 取自 /opt/litellm-server/service-key.txt
 ```
 
@@ -116,10 +116,10 @@ define('LITELLM_SERVICE_KEY', 'sk-xxxxx'); // 取自 /opt/litellm-server/service
 
 在任意机器执行：
 
-- `curl -I https://litellm.xooer.com/ui/ | egrep -i \"content-security-policy|x-frame-options\"`
+- `curl -I https://litellm.example.com/ui/ | egrep -i \"content-security-policy|x-frame-options\"`
 
 期望：
-- 有 `Content-Security-Policy: frame-ancestors ... https://agent.xooer.com`
+- 有 `Content-Security-Policy: frame-ancestors ... https://wp.example.com`
 - 没有 `X-Frame-Options: DENY/SAMEORIGIN`
 
 ### E2) LiteLLM 健康

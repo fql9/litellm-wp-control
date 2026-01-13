@@ -36,9 +36,9 @@
 - Grafana：`127.0.0.1:3000`
 - Alertmanager：`127.0.0.1:9093`
 
-## 快速开始（以 `https://agent.xooer.com` 为例：WordPress 后台 HTTPS + LiteLLM 子域名 HTTPS）
+## 快速开始（以 `https://wp.example.com` 为例：WordPress 后台 HTTPS + LiteLLM 子域名 HTTPS）
 
-你们当前 WordPress 后台是 `https://agent.xooer.com`，如果希望后台 iframe 嵌入 LiteLLM `/ui`，则 LiteLLM 对外入口也必须是 HTTPS（否则浏览器 mixed content 拦截）。
+如果你的 WordPress 后台是 `https://wp.example.com`，且希望后台 iframe 嵌入 LiteLLM `/ui`，则 LiteLLM 对外入口也必须是 HTTPS（否则浏览器 mixed content 拦截）。
 
 > 说明：部署脚本只负责 LiteLLM（Docker + 观测栈）部署，不负责 Nginx/证书/WordPress 插件安装；这些步骤由你按本文与 `doc/` 完成。
 
@@ -46,8 +46,8 @@
 
 - 你有 root/sudo 权限
 - 服务器可联网安装依赖（若使用 `--install-deps`）
-- DNS 已将 `litellm.xooer.com` 指向本机公网 IP（或你选择的子域名）
-- 你有可用的通配符证书（例如 `*.xooer.com`）并知道证书文件路径
+- DNS 已将 `litellm.example.com` 指向本机公网 IP（或你选择的子域名）
+- 你有可用的通配符证书（例如 `*.example.com`）并知道证书文件路径
 
 ### 1) 部署 LiteLLM（含观测栈）
 
@@ -72,7 +72,7 @@ sudo bash scripts/deploy-full.sh --service-key
 sudo cat /opt/litellm-server/service-key.txt
 ```
 
-### 3) 配置 Nginx：`https://litellm.xooer.com` → `http://127.0.0.1:24157`
+### 3) 配置 Nginx：`https://litellm.example.com` → `http://127.0.0.1:24157`
 
 1) 安装 Nginx（若未安装）：
 
@@ -91,12 +91,12 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-> 你需要把模板里 `litellm.yourcompany.com`、证书路径、以及 `https://your-wordpress-domain.com` 替换为你们的真实值（例如 `https://agent.xooer.com`）。
+> 你需要把模板里 `litellm.yourcompany.com`、证书路径、以及 `https://your-wordpress-domain.com` 替换为你们的真实值（例如 `https://wp.example.com`）。
 
 3) （推荐）同机自环解析，避免访问公网回环：
 
 ```bash
-echo '127.0.0.1 litellm.xooer.com' | sudo tee -a /etc/hosts
+echo '127.0.0.1 litellm.example.com' | sudo tee -a /etc/hosts
 ```
 
 ### 4) 部署 WordPress 插件并配置（不落库）
@@ -108,13 +108,13 @@ echo '127.0.0.1 litellm.xooer.com' | sudo tee -a /etc/hosts
 2) 推荐配置（写入 `wp-config.php` 常量）：
 
 ```php
-define('LITELLM_API_BASE', 'https://litellm.xooer.com');
+define('LITELLM_API_BASE', 'https://litellm.example.com');
 define('LITELLM_SERVICE_KEY', 'sk-xxxxx'); // 取自 /opt/litellm-server/service-key.txt
 ```
 
 ### 5) 最终验收
 
-- 直接访问 UI：`https://litellm.xooer.com/ui/`
+- 直接访问 UI：`https://litellm.example.com/ui/`
 - WordPress 后台打开 LiteLLM 页面：iframe 正常加载（无 mixed content / refused to frame）
 
 ---
