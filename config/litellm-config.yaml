@@ -1,0 +1,38 @@
+# LiteLLM 配置模板（企业落地版）
+#
+# 说明：
+# - 密钥放在 .env，由 docker-compose 注入环境变量
+# - 生产默认关闭 debug
+# - model_list 请按你实际需要的模型与供应商调整
+
+model_list:
+  - model_name: gpt-4
+    litellm_params:
+      model: openai/gpt-4-turbo
+      api_key: ${OPENAI_API_KEY}
+      api_base: https://api.openai.com/v1
+
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY}
+      api_base: https://api.openai.com/v1
+
+  # 如需 Anthropic
+  - model_name: claude-3-sonnet
+    litellm_params:
+      model: anthropic/claude-3-sonnet-20240229
+      api_key: ${ANTHROPIC_API_KEY}
+
+general_settings:
+  master_key: ${LITELLM_MASTER_KEY}
+  database_url: ${DATABASE_URL}
+  redis_url: ${REDIS_URL}
+  debug: false
+  detailed_debug: false
+  drop_params: true
+
+logging:
+  type: file
+  log_dir: /app/logs
+  log_level: INFO

@@ -1,0 +1,40 @@
+groups:
+  - name: litellm-basics
+    rules:
+      - alert: LiteLLMDown
+        expr: up{job="litellm"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LiteLLM /metrics 抓取失败"
+          description: "Prometheus 无法抓取 LiteLLM 指标（job=litellm）超过 2 分钟。"
+
+      - alert: LiteLLMHealthProbeFailed
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LiteLLM /health 探测失败"
+          description: "blackbox 探测 http://litellm:24157/health 连续失败超过 2 分钟。"
+
+  - name: host-basics
+    rules:
+      - alert: HostDiskAlmostFull
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "宿主机磁盘剩余不足 10%"
+          description: "请检查日志/备份占用与磁盘扩容计划。"
+
+      - alert: HostMemoryHigh
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "宿主机内存使用超过 90%"
+          description: "可能导致 OOM/频繁 GC/响应时间上升，请检查容器与 PHP-FPM/PostgreSQL。"

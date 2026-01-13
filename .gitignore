@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Node / frontend build artifacts
+node_modules/
+dist/
+build/
+
+# IDE/editor
+.vscode/
+.idea/
+.cursor/
+
+# Temp files
+*.swp
+*.swo
+*~
