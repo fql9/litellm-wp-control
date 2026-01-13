@@ -26,6 +26,30 @@ class LiteLLM_Dashboard {
     private static $instance = null;
 
     /**
+     * 优先从 wp-config.php 常量读取（企业推荐，避免密钥落库）
+     */
+    private function get_api_base(): string {
+        if (defined('LITELLM_API_BASE') && is_string(LITELLM_API_BASE) && LITELLM_API_BASE !== '') {
+            return rtrim(LITELLM_API_BASE, '/');
+        }
+        $settings = get_option('litellm_settings', []);
+        return rtrim($settings['api_base'] ?? 'http://localhost:24157', '/');
+    }
+
+    /**
+     * WordPress 侧用于调用 LiteLLM 管理接口的 key（推荐：service key）
+     * - 优先读取 LITELLM_SERVICE_KEY 常量
+     * - 兼容旧字段（示例插件里仍叫 master_key）
+     */
+    private function get_admin_key(): string {
+        if (defined('LITELLM_SERVICE_KEY') && is_string(LITELLM_SERVICE_KEY) && LITELLM_SERVICE_KEY !== '') {
+            return LITELLM_SERVICE_KEY;
+        }
+        $settings = get_option('litellm_settings', []);
+        return (string) ($settings['master_key'] ?? '');
+    }
+
+    /**
      * 获取单例实例
      */
     public static function get_instance() {
@@ -196,7 +220,7 @@ class LiteLLM_Dashboard {
         wp_localize_script('litellm-admin-js', 'litellmConfig', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('litellm_nonce'),
-            'apiBase' => get_option('litellm_settings')['api_base'] ?? 'http://localhost:24157'
+            'apiBase' => $this->get_api_base()
         ]);
     }
 
@@ -208,9 +232,9 @@ class LiteLLM_Dashboard {
             wp_die('Permission denied');
         }
 
-        // 获取设置
-        $settings = get_option('litellm_settings', []);
-        $is_configured = !empty($settings['master_key']) && $settings['api_base'];
+        // 获取设置（企业推荐：从常量读取）
+        $api_base = $this->get_api_base();
+        $is_configured = !empty($this->get_admin_key()) && !empty($api_base);
 
         ?>
         <div class="wrap">
@@ -263,7 +287,7 @@ class LiteLLM_Dashboard {
                         <h2><?php esc_html_e('LiteLLM Web 控制面板', 'litellm-dashboard'); ?></h2>
                         <iframe
                             id="litellm-iframe"
-                            src="<?php echo esc_url($settings['api_base']); ?>/ui"
+                            src="<?php echo esc_url($api_base); ?>/ui"
                             width="100%"
                             height="1200"
                             frameborder="0"
@@ -364,6 +388,9 @@ class LiteLLM_Dashboard {
         }
 
         $settings = get_option('litellm_settings', []);
+        $api_base = $this->get_api_base();
+        $using_const_api_base = defined('LITELLM_API_BASE') && is_string(LITELLM_API_BASE) && LITELLM_API_BASE !== '';
+        $using_const_key = defined('LITELLM_SERVICE_KEY') && is_string(LITELLM_SERVICE_KEY) && LITELLM_SERVICE_KEY !== '';
 
         ?>
         <div class="wrap">
@@ -376,15 +403,21 @@ class LiteLLM_Dashboard {
                     <tr>
                         <th><label for="api_base"><?php esc_html_e('API 基础 URL', 'litellm-dashboard'); ?></label></th>
                         <td>
-                            <input type="url" id="api_base" name="api_base" class="regular-text" value="<?php echo esc_attr($settings['api_base'] ?? ''); ?>" required>
+                            <input type="url" id="api_base" name="api_base" class="regular-text" value="<?php echo esc_attr($api_base ?? ''); ?>" <?php echo $using_const_api_base ? 'readonly' : ''; ?> required>
                             <p class="description"><?php esc_html_e('例如：http://localhost:24157 或 https://litellm.yourcompany.com', 'litellm-dashboard'); ?></p>
+                            <?php if ($using_const_api_base): ?>
+                                <p class="description"><strong><?php esc_html_e('当前由 wp-config.php 常量 LITELLM_API_BASE 注入（推荐）。', 'litellm-dashboard'); ?></strong></p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="master_key"><?php esc_html_e('主密钥 (Master Key)', 'litellm-dashboard'); ?></label></th>
+                        <th><label for="master_key"><?php esc_html_e('Service Key（推荐）', 'litellm-dashboard'); ?></label></th>
                         <td>
-                            <input type="password" id="master_key" name="master_key" class="regular-text" value="<?php echo esc_attr($settings['master_key'] ?? ''); ?>" required>
-                            <p class="description"><?php esc_html_e('输入 LiteLLM Master Key 以启用完整功能', 'litellm-dashboard'); ?></p>
+                            <input type="password" id="master_key" name="master_key" class="regular-text" value="" <?php echo $using_const_key ? 'readonly' : ''; ?> <?php echo $using_const_key ? '' : 'required'; ?>>
+                            <p class="description"><?php esc_html_e('生产建议：使用 WordPress 专用 service key，并通过 wp-config.php 常量 LITELLM_SERVICE_KEY 注入（不要把 Master Key/Service Key 明文存入数据库）。', 'litellm-dashboard'); ?></p>
+                            <?php if ($using_const_key): ?>
+                                <p class="description"><strong><?php esc_html_e('当前由 wp-config.php 常量 LITELLM_SERVICE_KEY 注入（推荐）。', 'litellm-dashboard'); ?></strong></p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <tr>
@@ -415,6 +448,8 @@ class LiteLLM_Dashboard {
         }
 
         $settings = get_option('litellm_settings', []);
+        // 不返回密钥（避免泄露）
+        $settings['master_key'] = '';
         wp_send_json_success($settings);
     }
 
@@ -428,11 +463,14 @@ class LiteLLM_Dashboard {
             wp_send_json_error('Permission denied');
         }
 
-        $settings = [
-            'api_base' => sanitize_url($_POST['api_base'] ?? ''),
-            'master_key' => sanitize_text_field($_POST['master_key'] ?? ''),
-            'enabled' => isset($_POST['enabled'])
-        ];
+        $settings = get_option('litellm_settings', []);
+        $settings['api_base'] = sanitize_url($_POST['api_base'] ?? '');
+        $settings['enabled'] = isset($_POST['enabled']);
+
+        // 如果未通过常量注入，则允许保存（示例/POC 用；生产不推荐）
+        if (!(defined('LITELLM_SERVICE_KEY') && is_string(LITELLM_SERVICE_KEY) && LITELLM_SERVICE_KEY !== '')) {
+            $settings['master_key'] = sanitize_text_field($_POST['master_key'] ?? '');
+        }
 
         update_option('litellm_settings', $settings);
         wp_send_json_success('Settings saved');
@@ -448,18 +486,19 @@ class LiteLLM_Dashboard {
             wp_send_json_error('Permission denied');
         }
 
-        $settings = get_option('litellm_settings', []);
+        $api_base = $this->get_api_base();
+        $admin_key = $this->get_admin_key();
 
-        if (empty($settings['api_base']) || empty($settings['master_key'])) {
+        if (empty($api_base) || empty($admin_key)) {
             wp_send_json_error('LiteLLM not configured');
         }
 
         // 调用 LiteLLM API 获取统计数据
         $response = wp_remote_get(
-            $settings['api_base'] . '/api/analytics',
+            $api_base . '/api/analytics',
             [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $settings['master_key']
+                    'Authorization' => 'Bearer ' . $admin_key
                 ],
                 'timeout' => 10
             ]
@@ -483,7 +522,11 @@ class LiteLLM_Dashboard {
             wp_send_json_error('Permission denied');
         }
 
-        $settings = get_option('litellm_settings', []);
+        $api_base = $this->get_api_base();
+        $admin_key = $this->get_admin_key();
+        if (empty($api_base) || empty($admin_key)) {
+            wp_send_json_error('LiteLLM not configured');
+        }
 
         $payload = [
             'key_name' => sanitize_text_field($_POST['key_name'] ?? ''),
@@ -493,10 +536,10 @@ class LiteLLM_Dashboard {
         ];
 
         $response = wp_remote_post(
-            $settings['api_base'] . '/key/generate',
+            $api_base . '/key/generate',
             [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $settings['master_key'],
+                    'Authorization' => 'Bearer ' . $admin_key,
                     'Content-Type' => 'application/json'
                 ],
                 'body' => json_encode($payload),
@@ -522,13 +565,17 @@ class LiteLLM_Dashboard {
             wp_send_json_error('Permission denied');
         }
 
-        $settings = get_option('litellm_settings', []);
+        $api_base = $this->get_api_base();
+        $admin_key = $this->get_admin_key();
+        if (empty($api_base) || empty($admin_key)) {
+            wp_send_json_error('LiteLLM not configured');
+        }
 
         $response = wp_remote_get(
-            $settings['api_base'] . '/key/list',
+            $api_base . '/key/list',
             [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $settings['master_key']
+                    'Authorization' => 'Bearer ' . $admin_key
                 ],
                 'timeout' => 10
             ]
@@ -552,14 +599,18 @@ class LiteLLM_Dashboard {
             wp_send_json_error('Permission denied');
         }
 
-        $settings = get_option('litellm_settings', []);
+        $api_base = $this->get_api_base();
+        $admin_key = $this->get_admin_key();
+        if (empty($api_base) || empty($admin_key)) {
+            wp_send_json_error('LiteLLM not configured');
+        }
         $key = sanitize_text_field($_POST['key'] ?? '');
 
         $response = wp_remote_post(
-            $settings['api_base'] . '/key/delete',
+            $api_base . '/key/delete',
             [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $settings['master_key'],
+                    'Authorization' => 'Bearer ' . $admin_key,
                     'Content-Type' => 'application/json'
                 ],
                 'body' => json_encode(['key' => $key]),

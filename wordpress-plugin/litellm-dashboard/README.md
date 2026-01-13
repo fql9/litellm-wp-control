@@ -15,7 +15,12 @@
 
 ## 重要安全说明（生产必读）
 
-当前示例插件会把密钥保存到 WordPress option 中（`litellm_settings.master_key`）。这在企业生产环境通常 **不合规**。
+当前示例插件 **支持** 通过 `wp-config.php` 常量注入（推荐），避免密钥落库：
+
+- `define('LITELLM_API_BASE', 'https://litellm.yourcompany.com');`
+- `define('LITELLM_SERVICE_KEY', 'sk-...');`
+
+若不使用常量注入而选择在后台表单里填写，则会把密钥保存到 WordPress option（`litellm_settings.master_key`）。这在企业生产环境通常 **不合规**。
 
 企业落地建议：
 - **Master Key 只用于运维 bootstrap**，从不写入 WP 数据库
