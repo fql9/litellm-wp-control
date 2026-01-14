@@ -1,6 +1,6 @@
 # WordPress 集成（企业级要点）
 
-> [< 上一篇：LiteLLM 部署](04-LiteLLM-部署（Docker-Compose）.md) | [返回目录](README.md) | [下一篇：观测与告警 >](06-观测与告警（Prometheus-Grafana）.md)
+> [< 上一篇：LiteLLM 部署](04-LiteLLM-部署（Docker-Compose）.md) | [返回目录](README.md) | [下一篇：安全基线 >](07-安全基线（强制项）.md)
 
 > 文档默认 LiteLLM 版本：**v1.80.11**（更新日期：**2026-01-13**）
 

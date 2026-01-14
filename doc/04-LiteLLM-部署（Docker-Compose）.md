@@ -25,9 +25,9 @@ sudo bash scripts/deploy-full.sh \
 
 脚本会做的事（你需要知道这些文件落在哪）：
 
-- 生成/准备 `/opt/litellm-server/`（compose/config/observability）
+- 生成/准备 `/opt/litellm-server/`（compose/config）
 - 生成或补齐 `/opt/litellm-server/.env`（默认权限 600）
-- 启动 LiteLLM + PostgreSQL + Redis + 观测栈
+- 启动 LiteLLM + PostgreSQL + Redis
 
 ## 模板文件
 

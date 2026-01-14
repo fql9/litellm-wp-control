@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 企业级 LiteLLM 部署脚本（仅 LiteLLM：Docker Compose + 可选观测栈）
+# 企业级 LiteLLM 部署脚本（LiteLLM：Docker Compose）
 # 安全默认：
 # - LiteLLM 仅绑定 127.0.0.1:${LITELLM_PORT}
 # - 强制要求你显式锁定 LiteLLM 镜像版本（LITELLM_IMAGE）
@@ -15,7 +15,6 @@ LITELLM_IMAGE_ARG=""
 INSTALL_DEPS=0
 ENABLE_UFW=0
 SSH_PORT=22
-START_OBSERVABILITY=1
 PRINT_SERVICE_KEY=0
 YES=0
 
@@ -38,7 +37,6 @@ usage() {
   --install-deps       安装依赖（docker/compose/jq/ufw）
   --enable-ufw         配置 UFW（默认不启用，避免误封 SSH）
   --ssh-port N         SSH 端口（默认 22）
-  --no-observability   不启动观测栈（不推荐）
   --litellm-dir PATH   部署目录（默认 /opt/litellm-server）
   --service-key        输出（必要时生成）service key，并写入 <litellm-dir>/service-key.txt
   --yes                非交互确认
@@ -85,7 +83,6 @@ parse_args() {
       --install-deps) INSTALL_DEPS=1; shift ;;
       --enable-ufw) ENABLE_UFW=1; shift ;;
       --ssh-port) SSH_PORT="${2:-22}"; shift 2 ;;
-      --no-observability) START_OBSERVABILITY=0; shift ;;
       --litellm-dir) LITELLM_DIR="${2:-}"; shift 2 ;;
       --service-key) PRINT_SERVICE_KEY=1; shift ;;
       --yes) YES=1; shift ;;
@@ -108,16 +105,13 @@ install_deps() {
 
 prepare_litellm_dir() {
   echo "==> 准备部署目录：${LITELLM_DIR}"
-  mkdir -p "${LITELLM_DIR}/config" "${LITELLM_DIR}/logs" "${LITELLM_DIR}/data" "${LITELLM_DIR}/observability"
+  mkdir -p "${LITELLM_DIR}/config" "${LITELLM_DIR}/logs" "${LITELLM_DIR}/data"
   chmod 755 "${LITELLM_DIR}"
 
   # 复制模板
   cp -f "${REPO_ROOT}/docker-compose.core.yml" "${LITELLM_DIR}/docker-compose.yml"
-  cp -f "${REPO_ROOT}/docker-compose.observability.yml" "${LITELLM_DIR}/docker-compose.observability.yml"
   cp -f "${REPO_ROOT}/config/litellm-config.yaml" "${LITELLM_DIR}/config/litellm-config.yaml"
-  rm -rf "${LITELLM_DIR}/observability"
-  cp -a "${REPO_ROOT}/observability" "${LITELLM_DIR}/observability"
-  chmod -R 755 "${LITELLM_DIR}/config" "${LITELLM_DIR}/observability"
+  chmod -R 755 "${LITELLM_DIR}/config"
 
   # 生成 .env（若不存在）
   if [[ ! -f "${LITELLM_DIR}/.env" ]]; then
@@ -206,11 +200,6 @@ start_services() {
   (cd "${LITELLM_DIR}" && docker compose up -d)
   curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null
   echo "    LiteLLM health OK: http://127.0.0.1:${LITELLM_PORT}/health"
-
-  if [[ "${START_OBSERVABILITY}" -eq 1 ]]; then
-    echo "==> 启动观测栈（Prometheus/Grafana/Alertmanager/node_exporter/cAdvisor/blackbox）"
-    (cd "${LITELLM_DIR}" && docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d)
-  fi
 }
 
 get_or_create_service_key() {
@@ -305,11 +294,6 @@ main() {
   echo ""
   echo "==> 完成"
   echo "- LiteLLM 仅本机回环：       http://127.0.0.1:${LITELLM_PORT}"
-  if [[ "${START_OBSERVABILITY}" -eq 1 ]]; then
-    echo "- Prometheus：               http://127.0.0.1:9090"
-    echo "- Grafana：                  http://127.0.0.1:3000"
-    echo "- Alertmanager：             http://127.0.0.1:9093"
-  fi
   echo ""
   echo "后续："
   echo "- 获取/生成 service key：sudo bash scripts/deploy-full.sh --service-key"

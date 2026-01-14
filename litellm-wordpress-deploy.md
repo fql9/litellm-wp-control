@@ -8,7 +8,7 @@
 - **文档目录**：`doc/README.md`
 - **一键脚本**：`scripts/deploy-full.sh`
 
-> 说明：脚本仅负责 LiteLLM（Docker + 观测栈）部署；WordPress 集成请阅读 `doc/05-WordPress-集成（企业级要点）.md` 并按需手工完成。
+> 说明：脚本仅负责 LiteLLM（Docker）部署；WordPress 集成请阅读 `doc/05-WordPress-集成（企业级要点）.md` 并按需手工完成。
 
 ## LiteLLM 官方参考
 

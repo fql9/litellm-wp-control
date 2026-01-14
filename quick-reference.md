@@ -1,6 +1,6 @@
 # LiteLLM + WordPress 集成 - 快速参考（已迁移）
 
-本仓库已将文档按章节拆分到 `doc/`，并提供了 LiteLLM（含观测栈）的自动化部署脚本，以及 WordPress（HTTPS）集成的完整指南。
+本仓库已将文档按章节拆分到 `doc/`，并提供了 LiteLLM 的自动化部署脚本，以及 WordPress（HTTPS）集成的完整指南。
 
 ## 推荐入口
 
