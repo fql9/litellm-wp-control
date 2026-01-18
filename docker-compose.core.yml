@@ -31,7 +31,7 @@ services:
 
   litellm:
     # 生产必须锁定版本：在 .env 中显式指定（避免滚动更新风险）
-    # 例：LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11（文档默认版本：2026-01-13）
+    # 例：LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11-stable（文档默认版本：2026-01-13）
     image: ${LITELLM_IMAGE}
     container_name: litellm-proxy
     depends_on:
@@ -39,6 +39,11 @@ services:
         condition: service_healthy
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      # 可选：UI 登录（用户名/密码）
+      UI_USERNAME: ${UI_USERNAME:-}
+      UI_PASSWORD: ${UI_PASSWORD:-}
+      # 可选：对外基址（强烈建议生产设置为 https://litellm.example.com，避免多层反代下生成 http 跳转）
+      PROXY_BASE_URL: ${PROXY_BASE_URL:-}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -58,7 +63,8 @@ services:
       - litellm-network
     command: ["--config", "/app/config.yaml", "--port", "24157"]
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:24157/health"]
+      # v1.80+ 某些端点可能需要鉴权；liveliness 通常不需要
+      test: ["CMD", "curl", "-fsS", "http://localhost:24157/health/liveliness"]
       interval: 30s
       timeout: 10s
       retries: 6

@@ -24,7 +24,7 @@ usage() {
   cat <<EOF
 用法：
   sudo ./scripts/deploy-full.sh \\
-    --litellm-image ghcr.io/berriai/litellm:v1.80.11 \\
+    --litellm-image ghcr.io/berriai/litellm:v1.80.11-stable \\
     --install-deps \\
     --enable-ufw --ssh-port 22 \\
     --yes
@@ -153,12 +153,12 @@ ensure_env_values() {
   img="$(grep -E "^LITELLM_IMAGE=" "${env_file}" | tail -n 1 | cut -d= -f2- || true)"
   if [[ -z "${img}" || "${img}" == "ghcr.io/berriai/litellm:vX.Y.Z" ]]; then
     if [[ "${YES}" -eq 1 ]]; then
-      echo "!! 你需要在 ${env_file} 中设置 LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11（或你验收通过的稳定版本）"
+      echo "!! 你需要在 ${env_file} 中设置 LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11-stable（或你验收通过的稳定版本）"
       echo "   文档默认版本：v1.80.11（更新日期：2026-01-13）"
       echo "   参考官方仓库 Releases: https://github.com/BerriAI/litellm"
       die "缺少/未正确设置 LITELLM_IMAGE"
     fi
-    echo "请输入 LiteLLM 镜像版本（建议从官方 Releases 选择稳定版）："
+  echo "请输入 LiteLLM 镜像版本（建议从官方 Releases 选择稳定版，例如 *-stable）："
     echo "  参考：https://github.com/BerriAI/litellm"
     read -r -p "LITELLM_IMAGE= " img_in
     [[ -n "${img_in}" ]] || die "LITELLM_IMAGE 不能为空"
@@ -198,8 +198,8 @@ ensure_env_values() {
 start_services() {
   echo "==> 启动 LiteLLM 核心服务"
   (cd "${LITELLM_DIR}" && docker compose up -d)
-  curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null
-  echo "    LiteLLM health OK: http://127.0.0.1:${LITELLM_PORT}/health"
+  curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health/liveliness" >/dev/null
+  echo "    LiteLLM health OK: http://127.0.0.1:${LITELLM_PORT}/health/liveliness"
 }
 
 get_or_create_service_key() {
@@ -265,11 +265,11 @@ main() {
     # 确保已部署目录与 env
     [[ -f "${LITELLM_DIR}/.env" ]] || die "未找到 ${LITELLM_DIR}/.env，请先部署 LiteLLM 或指定 --litellm-dir"
     # 确保服务可用（必要时启动）
-    if ! curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null 2>&1; then
+    if ! curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health/liveliness" >/dev/null 2>&1; then
       echo "==> LiteLLM 未运行，尝试启动（docker compose up -d）"
       (cd "${LITELLM_DIR}" && docker compose up -d)
     fi
-    curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health" >/dev/null || die "LiteLLM 未就绪，无法生成 service key"
+    curl -fsS "http://127.0.0.1:${LITELLM_PORT}/health/liveliness" >/dev/null || die "LiteLLM 未就绪，无法生成 service key"
     echo ""
     key="$(get_or_create_service_key)"
     echo ""

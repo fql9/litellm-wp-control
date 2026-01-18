@@ -2,7 +2,7 @@
 
 同一台服务器上实现 **LiteLLM（Docker）** 与 **WordPress（Ubuntu 原生）** 的企业级集成：在 WordPress 后台完成 **Key 管理、监控展示、可视化呈现（iframe 嵌入 LiteLLM `/ui`）**，并提供可落地的部署脚本与配置模板。
 
-> 文档默认 LiteLLM 版本：**v1.80.11**（更新日期：**2026-01-13**）
+> 文档默认 LiteLLM 版本：**v1.80.11-stable**（更新日期：**2026-01-13**）
 
 ## 适用场景
 
@@ -48,13 +48,13 @@
 ```bash
 sudo bash scripts/deploy-full.sh \
   --install-deps \
-  --litellm-image ghcr.io/berriai/litellm:v1.80.11
+  --litellm-image ghcr.io/berriai/litellm:v1.80.11-stable
 ```
 
 验证：
 
 ```bash
-curl -fsS http://127.0.0.1:24157/health
+curl -fsS http://127.0.0.1:24157/health/liveliness
 ```
 
 ### 2) 生成/获取 service key（给 WordPress 后端用）
@@ -114,7 +114,7 @@ define('LITELLM_SERVICE_KEY', 'sk-xxxxx'); // 取自 /opt/litellm-server/service
 ## 版本与官方参考
 
 - LiteLLM 官方仓库（功能/发布/变更）：[BerriAI/litellm](https://github.com/BerriAI/litellm)
-- 本仓库默认固定版本：`v1.80.11`（2026-01-13）
+- 本仓库默认固定版本：`v1.80.11-stable`（2026-01-13）
 
 ## 文档入口
 

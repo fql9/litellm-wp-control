@@ -9,25 +9,26 @@ model_list:
   - model_name: gpt-4
     litellm_params:
       model: openai/gpt-4-turbo
-      api_key: ${OPENAI_API_KEY}
+      # 使用 LiteLLM 的环境变量读取语法（避免 ${VAR} 在部分版本/解析器中不生效）
+      api_key: os.environ/OPENAI_API_KEY
       api_base: https://api.openai.com/v1
 
   - model_name: gpt-3.5-turbo
     litellm_params:
       model: openai/gpt-3.5-turbo
-      api_key: ${OPENAI_API_KEY}
+      api_key: os.environ/OPENAI_API_KEY
       api_base: https://api.openai.com/v1
 
   # 如需 Anthropic
   - model_name: claude-3-sonnet
     litellm_params:
       model: anthropic/claude-3-sonnet-20240229
-      api_key: ${ANTHROPIC_API_KEY}
+      api_key: os.environ/ANTHROPIC_API_KEY
 
 general_settings:
-  master_key: ${LITELLM_MASTER_KEY}
-  database_url: ${DATABASE_URL}
-  redis_url: ${REDIS_URL}
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  redis_url: os.environ/REDIS_URL
   debug: false
   detailed_debug: false
   drop_params: true
