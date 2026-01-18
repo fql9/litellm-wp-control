@@ -2,7 +2,7 @@
 
 > [< 上一篇：LiteLLM 部署](04-LiteLLM-部署（Docker-Compose）.md) | [返回目录](README.md) | [下一篇：安全基线 >](07-安全基线（强制项）.md)
 
-> 文档默认 LiteLLM 版本：**v1.80.11**（更新日期：**2026-01-13**）
+> 文档默认 LiteLLM 版本：**v1.80.11-stable**（更新日期：**2026-01-13**）
 
 本章目标：在 **WordPress 后台（HTTPS）** 中完成 LiteLLM 的“可视化（iframe `/ui`）+ 管理调用（PHP 服务器端）”集成，同时满足企业最基本的密钥与暴露面要求。
 
@@ -53,6 +53,41 @@
 3) 校验并 reload：
 - `nginx -t && systemctl reload nginx`
 
+#### B2.1) 必须处理 `/ui`、`/ui/login` 的“尾斜杠规范化”（否则会 mixed content 或重定向死循环）
+
+你在 WordPress 后台 iframe 里加载的是 `https://litellm.example.com/ui`，LiteLLM UI 内部会跳转到登录页（常见为 `/ui/login` 或 `/ui/login/`）。
+
+**关键坑点：**
+
+- `/ui/login` 与 `/ui/login/` 是两个不同 URL；很多后端会对“不带斜杠”的版本做 `307/308` 跳转补斜杠。
+- 如果该跳转生成了 `Location: http://...`，会导致 WP 后台出现 mixed content（HTTPS 页面嵌入了 HTTP frame）。
+- 如果你在 Nginx 写成 `location /ui/login { return 308 /ui/login/; }`（前缀匹配），`/ui/login/` 也会命中同一条规则，从而产生 **redirected you too many times** 的重定向死循环。
+
+**推荐写法（精确匹配 `=` + 反代纠偏）：**
+
+```nginx
+location = /ui { return 301 /ui/; }
+location = /ui/login { return 308 /ui/login/; }
+
+location /ui/ {
+    proxy_pass http://127.0.0.1:24157/ui/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_redirect http:// https://;
+}
+```
+
+**验证命令（看到任何 `Location: http://...` 都是不合格）：**
+
+```bash
+curl -sSI https://litellm.example.com/ui        | egrep -i '^(HTTP/|location:)'
+curl -sSI https://litellm.example.com/ui/       | egrep -i '^(HTTP/|location:)'
+curl -sSI https://litellm.example.com/ui/login  | egrep -i '^(HTTP/|location:)'
+curl -sSI https://litellm.example.com/ui/login/ | egrep -i '^(HTTP/|location:)'
+```
+
 ### B3) （强烈推荐）同机自环解析，避免“访问公网再回环”
 
 由于 WordPress 与 LiteLLM 在同机，建议在服务器 `/etc/hosts` 里加：
@@ -78,6 +113,14 @@
 sudo bash scripts/deploy-full.sh --service-key
 sudo cat /opt/litellm-server/service-key.txt
 ```
+
+> 说明：LiteLLM UI 登录（用户名/密码）与 service key 是两套凭证体系：  
+> - UI 登录：`UI_USERNAME`/`UI_PASSWORD`（推荐）  
+> - WordPress 后端调用管理接口：`LITELLM_SERVICE_KEY`（由 master key 生成的 service key）
+
+参考官方文档：
+- UI 登录：[LiteLLM UI](https://docs.litellm.ai/docs/proxy/ui?utm_source=openai)
+- virtual/service keys：[Virtual Keys](https://docs.litellm.ai/docs/proxy/virtual_keys?utm_source=openai)
 
 > 该文件默认权限为 600，仅 root 可读。企业实践中你可以把它纳入密钥管理系统（Vault/KMS/堡垒机下发）。
 
@@ -126,7 +169,7 @@ define('LITELLM_SERVICE_KEY', 'sk-xxxxx'); // 取自 /opt/litellm-server/service
 
 在 LiteLLM 服务器：
 
-- `curl -fsS http://127.0.0.1:24157/health`
+- `curl -fsS http://127.0.0.1:24157/health/liveliness`
 
 ### E3) WordPress 后台
 

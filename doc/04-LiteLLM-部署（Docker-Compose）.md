@@ -2,7 +2,7 @@
 
 > [< 上一篇：同机部署网络拓扑](03-同机部署网络拓扑.md) | [返回目录](README.md) | [下一篇：WordPress 集成 >](05-WordPress-集成（企业级要点）.md)
 
-> 文档默认 LiteLLM 版本：**v1.80.11**（更新日期：**2026-01-13**）
+> 文档默认 LiteLLM 版本：**v1.80.11-stable**（更新日期：**2026-01-13**）
 
 ## 目录结构建议
 
@@ -20,7 +20,7 @@
 ```bash
 sudo bash scripts/deploy-full.sh \
   --install-deps \
-  --litellm-image ghcr.io/berriai/litellm:v1.80.11
+  --litellm-image ghcr.io/berriai/litellm:v1.80.11-stable
 ```
 
 脚本会做的事（你需要知道这些文件落在哪）：
@@ -73,7 +73,7 @@ docker compose up -d
 
 在 `.env` 中设置：
 
-- `LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11`（文档默认版本：2026-01-13）
+- `LITELLM_IMAGE=ghcr.io/berriai/litellm:v1.80.11-stable`（文档默认版本：2026-01-13）
 
 版本来源建议参考官方仓库：[BerriAI/litellm](https://github.com/BerriAI/litellm)
 
@@ -84,8 +84,10 @@ cd /opt/litellm-server
 chmod 600 .env
 docker compose up -d
 docker compose ps
-curl -fsS http://127.0.0.1:24157/health
+curl -fsS http://127.0.0.1:24157/health/liveliness
 ```
+
+> 说明：v1.80+ 某些端点可能需要鉴权；因此本文默认使用通常不需要鉴权的 `/health/liveliness`。
 
 ## 常用运维命令（上线后常用）
 
@@ -115,6 +117,31 @@ docker compose restart litellm
 ```bash
 sudo bash scripts/deploy-full.sh --service-key
 ```
+
+## UI 登录（用户名/密码）与对外基址（避免 https -> http）
+
+> LiteLLM UI 的登录与重定向行为会随版本/是否启用 SSO 不同而变化。生产推荐明确设置 UI 登录账户，并配置对外基址。
+
+1) 在 `/opt/litellm-server/.env` 添加（或修改）：
+
+```bash
+UI_USERNAME=your_admin_username
+UI_PASSWORD=your_strong_password
+PROXY_BASE_URL=https://litellm.example.com
+```
+
+2) 重启 LiteLLM 使环境变量生效：
+
+```bash
+cd /opt/litellm-server
+docker compose up -d
+```
+
+3) 访问：`https://litellm.example.com/ui/login/`，使用 `UI_USERNAME`/`UI_PASSWORD` 登录。
+
+参考官方文档：
+- UI 登录配置：[LiteLLM UI](https://docs.litellm.ai/docs/proxy/ui?utm_source=openai)
+- virtual/service keys：[Virtual Keys](https://docs.litellm.ai/docs/proxy/virtual_keys?utm_source=openai)
 
 ## 升级/回滚（简版说明）
 
